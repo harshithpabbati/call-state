@@ -1,20 +1,18 @@
-import * as React from "react";
+import * as React from 'react';
 
 const Modal = ({ isVisible, hideModal }) => {
-  return isVisible
-    ? (
-      <>
-        <div className="modal">
-          <div className="header">
-            <h1 className="title">Modal</h1>
-            <span className="description">
-              Here is the modal
-            </span>
-          </div>
-          <button onClick={hideModal} className="button">
-            Go to event
-          </button>
-          <style jsx>{`
+  return isVisible ? (
+    <>
+      <div className="modal">
+        <div className="header">
+          <h1 className="title">Modal</h1>
+          <span className="description">Here is the modal</span>
+        </div>
+        <button onClick={hideModal} className="button">
+          Go to event
+        </button>
+        <style jsx>
+          {`
             .modal {
               position: fixed;
               z-index: 3000;
@@ -48,10 +46,10 @@ const Modal = ({ isVisible, hideModal }) => {
               width: 100%;
             }
           `}
-          </style>
-        </div>
-      </>
-    ) : null;
+        </style>
+      </div>
+    </>
+  ) : null;
 };
 
 export default Modal;

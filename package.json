@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.21.0",
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "eslint": "7.32.0",
-    "eslint-config-next": "12.0.2"
+    "eslint-config-next": "12.0.2",
+    "prettier": "^2.4.1"
   }
 }
