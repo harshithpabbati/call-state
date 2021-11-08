@@ -3,40 +3,15 @@ import React, {
   useEffect,
   useCallback,
   useRef,
-  useMemo,
 } from 'react';
-import DailyIframe from '@daily-co/daily-js';
 
-const CALL_OPTIONS = {
-  showLeaveButton: true,
-  iframeStyle: {
-    position: 'fixed',
-    border: 0,
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-  },
-};
-
-export const useSharedState = ({ initialValues }) => {
-  const url = 'https://harshith.daily.co/4aafc8uvLt7vzu6Sh9gu';
-  const callRef = useRef(null);
+// @params initialValues - initial values of the shared state
+// @params callObject - the daily callObject
+export const useSharedState = ({ initialValues, callObject: daily }) => {
   const stateRef = useRef(null);
-
-  const [daily, setDaily] = useState(null);
   const [state, setState] = useState(initialValues);
 
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
-  const handleAppMessage = useCallback(event => {
-    if (event.data?.message?.type === 'set-shared-state') {
-      setState(event.data.message.value);
-    }
-  }, []);
-
+  // function allows us to get the earliest participants from the list of participants
   const findEarliestParticipant = participants => {
     let earliestTimestamp = new Date(
       Math.min.apply(
@@ -54,15 +29,21 @@ export const useSharedState = ({ initialValues }) => {
     })[0];
   };
 
+  // whenever a participant joins, we get the participants list
+  // and find out who is the earliest participant in the call
+  // and shares his state value to everyone in the call.
   const handleParticipantJoined = useCallback(
-    frame => {
-      const participants = frame.participants();
+    () => {
+      const participants = daily.participants();
       const earlyParticipant = findEarliestParticipant(
         Object.values(participants),
       );
       if (earlyParticipant.local) {
+        // have to wait for a sec as the participant-joined event may trigger before the local participant joins in.
+        // https://docs.daily.co/reference/daily-js/events/participant-events#participant-joined
+        // from the doc - this event may arrive for a remote participant before the local joined-meeting event fires.
         setTimeout(() => {
-          frame.sendAppMessage(
+          daily.sendAppMessage(
             {
               message: {
                 type: 'set-shared-state',
@@ -74,42 +55,46 @@ export const useSharedState = ({ initialValues }) => {
         }, 1000);
       }
     },
-    [stateRef],
+    [stateRef, daily],
   );
 
+  // handling the app-message event, to check if the state is being shared.
+  const handleAppMessage = useCallback(event => {
+    if (event.data?.message?.type === 'set-shared-state') {
+      setState(event.data.message.value);
+    }
+  }, []);
+
   useEffect(() => {
-    if (daily) return;
+    if (daily) {
+      daily.on('app-message', handleAppMessage);
+      daily.on('participant-joined', handleParticipantJoined);
+    }
+  }, [daily]);
 
-    const frame = DailyIframe.createFrame(callRef?.current, CALL_OPTIONS);
-    setDaily(frame);
-    frame.join({ url });
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
-    frame.on('app-message', handleAppMessage);
-    frame.on('participant-joined', () => handleParticipantJoined(frame));
-  }, []);
-
-  const leave = useCallback(() => {
-    daily.destroy();
-    setDaily(null);
-  }, []);
-
+  // setSharedState function takes in the state values :-
+  // 1. set the state for the local user.
+  // 2. share the state with everyone in the call.
   const setSharedState = useCallback(
     values => {
-      if (daily) {
-        daily.sendAppMessage(
-          {
-            message: {
-              type: 'set-shared-state',
-              value: values,
-            },
+      daily.sendAppMessage(
+        {
+          message: {
+            type: 'set-shared-state',
+            value: values,
           },
-          '*',
-        );
-        setState(values);
-      }
+        },
+        '*',
+      );
+      setState(values);
     },
     [daily],
   );
 
-  return { callRef, daily, leave, sharedState: state, setSharedState };
+  // returns back the sharedState and the setSharedState function
+  return { sharedState: state, setSharedState };
 };

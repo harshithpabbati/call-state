@@ -1,11 +1,14 @@
 import React, { useEffect } from 'react';
 import Modal from '../components/Modal';
+import { useCallState } from '../hooks/useCallState';
 import { useSharedState } from '../hooks/useSharedState';
 
 const Home = () => {
-  const { callRef, daily, leave, sharedState, setSharedState } = useSharedState(
+  const { callRef, daily, leave } = useCallState();
+  const { sharedState, setSharedState } = useSharedState(
     {
       initialValues: { isVisible: false, showToggle: false },
+      callObject: daily,
     },
   );
 
