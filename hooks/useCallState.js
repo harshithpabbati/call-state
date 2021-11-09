@@ -24,12 +24,15 @@ export const useCallState = () => {
     setDaily(null);
   }, []);
 
-  useEffect(() => {
-    if (daily) return;
-
+  const joinCall = useCallback(async () => {
     const frame = DailyIframe.createFrame(callRef?.current, CALL_OPTIONS);
     setDaily(frame);
-    frame.join({ url });
+    await frame.join({ url });
+  }, []);
+
+  useEffect(() => {
+    if (daily) return;
+    joinCall();
   }, []);
 
   return { callRef, daily, leave };

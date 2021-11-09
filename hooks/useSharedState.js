@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-} from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 // @params initialValues - initial values of the shared state
 // @params callObject - the daily callObject
@@ -11,8 +6,9 @@ export const useSharedState = ({ initialValues, callObject: daily }) => {
   const stateRef = useRef(null);
   const [state, setState] = useState(initialValues);
 
-  // function allows us to get the earliest participants from the list of participants
+  // function allows us to get the first participant who joined the call from the list of participants
   const findEarliestParticipant = participants => {
+    // get the first timestamp among the participants list.
     let earliestTimestamp = new Date(
       Math.min.apply(
         null,
@@ -21,6 +17,7 @@ export const useSharedState = ({ initialValues, callObject: daily }) => {
         }),
       ),
     );
+    // returns the first joined participant, using the timestamp.
     return participants.filter(participant => {
       return (
         new Date(participant.joined_at).getTime() ===
@@ -29,20 +26,12 @@ export const useSharedState = ({ initialValues, callObject: daily }) => {
     })[0];
   };
 
-  // whenever a participant joins, we get the participants list
-  // and find out who is the earliest participant in the call
-  // and shares his state value to everyone in the call.
-  const handleParticipantJoined = useCallback(
-    () => {
-      const participants = daily.participants();
-      const earlyParticipant = findEarliestParticipant(
-        Object.values(participants),
-      );
-      if (earlyParticipant.local) {
-        // have to wait for a sec as the participant-joined event may trigger before the local participant joins in.
-        // https://docs.daily.co/reference/daily-js/events/participant-events#participant-joined
-        // from the doc - this event may arrive for a remote participant before the local joined-meeting event fires.
-        setTimeout(() => {
+  // handling the app-message event, to check if the state is being shared.
+  const handleAppMessage = useCallback(
+    event => {
+      switch (event.data?.message?.type) {
+        // if we receive a request-shared-state message type, we send the shared-state to everyone in the call.
+        case 'request-shared-state':
           daily.sendAppMessage(
             {
               message: {
@@ -52,23 +41,41 @@ export const useSharedState = ({ initialValues, callObject: daily }) => {
             },
             '*',
           );
-        }, 1000);
+          break;
+        // if we receive a set-shared-state message type then, we set the shared-state values into the local user state.
+        case 'set-shared-state':
+          setState(event.data.message.value);
+          break;
       }
     },
     [stateRef, daily],
   );
 
-  // handling the app-message event, to check if the state is being shared.
-  const handleAppMessage = useCallback(event => {
-    if (event.data?.message?.type === 'set-shared-state') {
-      setState(event.data.message.value);
-    }
-  }, []);
+  // whenever local user joins, we find out who is the earliest participant in the call
+  // and we will request him for the shared state.
+  const handleJoinedMeeting = useCallback(() => {
+    // Randomize delay to increase the chance of lowering overall network traffic
+    const requestDelay = 1000 + Math.ceil(2000 * Math.random());
+    setTimeout(() => {
+      const participants = daily.participants();
+      const earlyParticipant = findEarliestParticipant(
+        Object.values(participants),
+      );
+      daily.sendAppMessage(
+        {
+          message: {
+            type: 'request-shared-state',
+          },
+        },
+        earlyParticipant.user_id,
+      );
+    }, requestDelay);
+  }, [daily]);
 
   useEffect(() => {
     if (daily) {
       daily.on('app-message', handleAppMessage);
-      daily.on('participant-joined', handleParticipantJoined);
+      daily.on('joined-meeting', handleJoinedMeeting);
     }
   }, [daily]);
 
@@ -77,8 +84,8 @@ export const useSharedState = ({ initialValues, callObject: daily }) => {
   }, [state]);
 
   // setSharedState function takes in the state values :-
-  // 1. set the state for the local user.
-  // 2. share the state with everyone in the call.
+  // 1. shares the state with everyone in the call.
+  // 2. set the state for the local user.
   const setSharedState = useCallback(
     values => {
       daily.sendAppMessage(

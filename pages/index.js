@@ -5,12 +5,10 @@ import { useSharedState } from '../hooks/useSharedState';
 
 const Home = () => {
   const { callRef, daily, leave } = useCallState();
-  const { sharedState, setSharedState } = useSharedState(
-    {
-      initialValues: { isVisible: false, showToggle: false },
-      callObject: daily,
-    },
-  );
+  const { sharedState, setSharedState } = useSharedState({
+    initialValues: { isVisible: false, showToggle: false },
+    callObject: daily,
+  });
 
   const handleToggle = () =>
     setSharedState({ ...sharedState, isVisible: !sharedState.isVisible });
